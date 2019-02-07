@@ -73,11 +73,7 @@ class GAN:
                                              " G loss: " + str(round(g_loss, 4)) +
                                              " G acc: " + str(round(g_accuracy, 4)))
                 if plot_interval != 0 and (i % plot_interval == 0):
-                    images = self.generate(32)
-                    grid = vis.image_grid(images, 8)
-                    grid = 0.5 * grid + 0.5
-                    plt.imshow(np.squeeze(grid), cmap="gray")
-                    plt.show()
+                    vis.show_gan_image_predictions(self, 32)
 
     def train(self, X, Y=None, epochs=10, batch_size=32, log_interval=1, plot_interval=50):
         if batch_size >= X.shape[0]:
