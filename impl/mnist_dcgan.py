@@ -3,7 +3,7 @@ from keras.datasets import mnist
 from keras.layers import Conv2D, LeakyReLU, Dropout, BatchNormalization, Dense, Reshape, UpSampling2D, Activation, \
     Flatten
 import numpy as np
-from ..core import GAN, vis
+from core import GAN, vis
 
 channels = 1
 img_shape = (28, 28, channels)
