@@ -4,7 +4,7 @@ from keras.optimizers import Adam
 from tqdm.auto import trange
 from tqdm import trange
 
-from core import vis
+from . import vis
 
 
 class GAN:

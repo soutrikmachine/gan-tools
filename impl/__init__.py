@@ -1,1 +1,1 @@
-from .dcgan import *
+from .mnist_dcgan import *
