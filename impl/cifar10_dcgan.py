@@ -5,15 +5,15 @@ from keras.layers import Conv2D, LeakyReLU, Dropout, BatchNormalization, Dense, 
 import numpy as np
 from core import GAN, vis
 
-channels = 3
-img_shape = (32, 32, channels)
-noise_input_shape = (100,)
+cifar10_channels = 3
+cifar10_img_shape = (32, 32, cifar10_channels)
+cifar10_noise_input_shape = (100,)
 
 
 def cifar10_generator_model():
     model = Sequential(name='generator')
 
-    model.add(Dense(128 * 8 * 8, activation="relu", input_shape=noise_input_shape))
+    model.add(Dense(128 * 8 * 8, activation="relu", input_shape=cifar10_noise_input_shape))
     model.add(Reshape((8, 8, 128)))
     model.add(UpSampling2D())
     model.add(Conv2D(128, kernel_size=3, padding="same"))
@@ -23,14 +23,14 @@ def cifar10_generator_model():
     model.add(Conv2D(64, kernel_size=3, padding="same"))
     model.add(BatchNormalization(momentum=0.8))
     model.add(Activation("relu"))
-    model.add(Conv2D(channels, kernel_size=3, padding="same"))
+    model.add(Conv2D(cifar10_channels, kernel_size=3, padding="same"))
     model.add(Activation("tanh"))
     return model
 
 
 def cifar10_discriminator_model():
     model = Sequential()
-    model.add(Conv2D(32, kernel_size=3, strides=2, input_shape=img_shape, padding="same"))
+    model.add(Conv2D(32, kernel_size=3, strides=2, input_shape=cifar10_img_shape, padding="same"))
     model.add(LeakyReLU(alpha=0.2))
     model.add(Dropout(0.25))
     model.add(Conv2D(64, kernel_size=3, strides=2, padding="same"))
