@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 def image_grid(array, columns):
     nr, height, width, channels = array.shape
     rows = nr // columns
@@ -9,6 +10,11 @@ def image_grid(array, columns):
         .swapaxes(1, 2) \
         .reshape(height * rows, width * columns, channels)
     return result
+
+
+def show_image_grid(array, columns):
+    grid = image_grid(array, columns)
+    plt.imshow(grid)
 
 
 def show_gan_image_predictions(gan, nr, columns=8):
