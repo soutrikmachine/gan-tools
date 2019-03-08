@@ -12,14 +12,15 @@ class GAN:
 
     def __init__(self, generator, discriminator,
                  generator_optimizer=default_optimizer, discriminator_optimizer=default_optimizer,
-                 noise='normal', noise_params=None):
+                 noise='normal', noise_params=None, loss='binary_crossentropy'):
         self.generator = generator
         self.discriminator = discriminator
         self.generator_optimizer = generator_optimizer
         self.discriminator_optimizer = discriminator_optimizer
         self.noise_input_shape = generator.layers[0].input_shape[1:]
-        self.__combine_discriminator_generator(generator, discriminator)
+        self.__combine_discriminator_generator()
         self.set_noise(noise, noise_params)
+        self.loss = loss
 
     def set_noise(self, noise, noise_params):
         if noise_params is None and noise == 'normal':
@@ -32,15 +33,15 @@ class GAN:
         noise = self.__generate_noise((nr,) + self.noise_input_shape)
         return self.generator.predict(noise)
 
-    def __combine_discriminator_generator(self, generator, discriminator):
-        self.discriminator.compile(loss='binary_crossentropy',
+    def __combine_discriminator_generator(self):
+        self.discriminator.compile(loss=self.loss,
                                    optimizer=self.discriminator_optimizer, metrics=['acc'])
         gan_noise_input = Input(shape=self.noise_input_shape, name='gan_noise_input')
-        generator_out = generator(inputs=[gan_noise_input])
-        discriminator.trainable = False
-        gan_output = discriminator(inputs=[generator_out])
+        generator_out = self.generator(inputs=[gan_noise_input])
+        self.discriminator.trainable = False
+        gan_output = self.discriminator(inputs=[generator_out])
         self.gan = Model(inputs=[gan_noise_input], outputs=[gan_output], name='GAN')
-        self.gan.compile(loss='binary_crossentropy', optimizer=self.generator_optimizer, metrics=['acc'])
+        self.gan.compile(loss=self.loss, optimizer=self.generator_optimizer, metrics=['acc'])
 
     def __generate_noise(self, shape):
         if callable(self.noise):
