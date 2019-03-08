@@ -18,9 +18,9 @@ class GAN:
         self.generator_optimizer = generator_optimizer
         self.discriminator_optimizer = discriminator_optimizer
         self.noise_input_shape = generator.layers[0].input_shape[1:]
-        self.__combine_discriminator_generator()
         self.set_noise(noise, noise_params)
         self.loss = loss
+        self.__combine_discriminator_generator()
 
     def set_noise(self, noise, noise_params):
         if noise_params is None and noise == 'normal':
