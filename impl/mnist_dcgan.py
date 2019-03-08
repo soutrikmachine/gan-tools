@@ -61,5 +61,4 @@ if __name__ == '__main__':
     X_train = np.expand_dims(X_train, -1)
     gan = mnist_dcgan()
     gan.train_random_batches(X_train, batch_size=32)
-    gan.train(X_train, batch_size=2)
     vis.show_gan_image_predictions(gan, 32)

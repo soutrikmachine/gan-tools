@@ -74,7 +74,7 @@ class GAN:
                                              " G loss: " + str(round(g_loss, 4)) +
                                              " G acc: " + str(round(g_accuracy, 4)))
                 if plot_interval != 0 and (i % plot_interval == 0):
-                    vis.show_gan_image_predictions(self, 32, image_shape)
+                    vis.show_gan_image_predictions(self, 32, image_shape=image_shape)
 
     def train(self, X, Y=None, epochs=10, batch_size=32, log_interval=1, plot_interval=50, image_shape=None):
         if batch_size >= X.shape[0]:
@@ -112,7 +112,7 @@ class GAN:
                                                  " G loss: " + str(round(g_loss, 4)) +
                                                  " G acc: " + str(round(g_accuracy, 4)))
                     if plot_interval != 0 and (batches_done % plot_interval == 0):
-                        vis.show_gan_image_predictions(self, 32, image_shape)
+                        vis.show_gan_image_predictions(self, 32, image_shape=image_shape)
 
     def train_generator(self, batch_size):
         # Train the generator, 2* batch size to get the same nr as the discriminator
