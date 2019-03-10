@@ -1,9 +1,10 @@
+import keras
 import numpy as np
 from keras import Input, Model
 from keras.optimizers import Adam
 from tqdm.auto import trange
 from tqdm import trange
-
+from . import loss as gan_losses
 from . import vis
 
 
@@ -19,7 +20,12 @@ class GAN:
         self.discriminator_optimizer = discriminator_optimizer
         self.noise_input_shape = generator.layers[0].input_shape[1:]
         self.set_noise(noise, noise_params)
-        self.loss = loss
+        if loss.lower() == 'wasserstein':
+            self.loss = gan_losses.wasserstein_loss
+            if discriminator.layers[-1].activation != keras.activations.linear and  discriminator.layers[-1].activation is not None:
+                raise ValueError("Wasserstein loss requires the final activation to be linear.")
+        else:
+            self.loss = loss
         self.__combine_discriminator_generator()
 
     def set_noise(self, noise, noise_params):
@@ -124,7 +130,10 @@ class GAN:
     def train_discriminator(self, fake_batch, x_batch):
         # labels for the discriminator
         y_real_discriminator = [1] * x_batch.shape[0]
-        y_fake_discriminator = [0] * fake_batch.shape[0]
+        if self.loss == gan_losses.wasserstein_loss:
+            y_fake_discriminator = [-1] * fake_batch.shape[0]
+        else:
+            y_fake_discriminator = [0] * fake_batch.shape[0]
         # Train the discriminator
         (d_loss1, d_accuracy1) = self.discriminator.train_on_batch(x=[x_batch],
                                                                    y=y_real_discriminator)

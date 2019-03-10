@@ -1,8 +1,6 @@
 from keras import Sequential, initializers
 from keras.datasets import mnist
-from keras.layers import Conv2D, LeakyReLU, Dropout, BatchNormalization, Dense, Reshape, UpSampling2D, Activation, \
-    Flatten
-import numpy as np
+from keras.layers import LeakyReLU, Dropout, Dense
 from core import GAN, vis
 
 mnist_channels = 1
@@ -45,4 +43,4 @@ if __name__ == '__main__':
     X_train_mnist = X_train_mnist.astype('float32') / 127.5 - 1
     gan = mnist_gan()
     gan.train_random_batches(X_train_mnist, batch_size=32, image_shape=(28,28))
-    vis.show_gan_image_predictions(gan, 32)
+    vis.show_gan_image_predictions(gan, 32, image_shape=(28,28))
