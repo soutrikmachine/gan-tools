@@ -1,6 +1,8 @@
 from keras import Sequential, initializers
 from keras.datasets import mnist
 from keras.layers import LeakyReLU, Dense
+from keras.optimizers import RMSprop
+
 from core import GAN, vis, constraint
 
 # Architecture following the fully connected variant described in https://arxiv.org/abs/1701.07875
@@ -18,14 +20,14 @@ wasserstein_params = {'kernel_initializer': kernel_initializer
 
 def mnist_generator_model():
     generator = Sequential()
-    generator.add(Dense(512, input_dim=100, **wasserstein_params))
+    generator.add(Dense(512, input_dim=100))
     generator.add(LeakyReLU(0.2))
-    generator.add(Dense(512, **wasserstein_params))
+    generator.add(Dense(512))
     generator.add(LeakyReLU(0.2))
-    generator.add(Dense(512, **wasserstein_params))
+    generator.add(Dense(512))
     generator.add(LeakyReLU(0.2))
     generator.add(
-        Dense(784, activation='tanh', **wasserstein_params))
+        Dense(784, activation='tanh'))
     return generator
 
 
@@ -42,7 +44,9 @@ def mnist_discriminator_model():
 
 
 def mnist_gan():
-    return GAN(discriminator=mnist_discriminator_model(), generator=mnist_generator_model(), loss='wasserstein')
+    optimizer = RMSprop(lr=0.00005)
+    return GAN(discriminator=mnist_discriminator_model(), generator=mnist_generator_model(), loss='wasserstein'
+               ,generator_optimizer=optimizer, discriminator_optimizer=optimizer)
 
 
 if __name__ == '__main__':
@@ -50,5 +54,6 @@ if __name__ == '__main__':
     X_train_mnist = X_train_mnist.reshape((-1, 28 * 28))
     X_train_mnist = X_train_mnist.astype('float32') / 127.5 - 1
     gan = mnist_gan()
-    gan.train_random_batches(X_train_mnist, batches=5000, batch_size=32, image_shape=(28, 28), plot_interval=250)
+    gan.train_random_batches(X_train_mnist, batches=5000, batch_size=32, image_shape=(28, 28), plot_interval=250
+                             ,nr_train_discriminator=5)
     vis.show_gan_image_predictions(gan, 32, image_shape=(28, 28))

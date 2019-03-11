@@ -22,7 +22,8 @@ class GAN:
         self.set_noise(noise, noise_params)
         if loss.lower() == 'wasserstein' or loss is gan_losses.wasserstein_loss:
             self.loss = gan_losses.wasserstein_loss
-            if discriminator.layers[-1].activation != keras.activations.linear and discriminator.layers[-1].activation is not None:
+            if discriminator.layers[-1].activation != keras.activations.linear and discriminator.layers[
+                -1].activation is not None:
                 raise ValueError("Wasserstein loss requires the final activation to be linear.")
         else:
             self.loss = loss
@@ -56,23 +57,40 @@ class GAN:
             return np.random.normal(self.noise_params['mu'], self.noise_params['sigma'], shape)
         return np.random.uniform(self.noise_params['min'], self.noise_params['max'], shape)
 
-    def train_random_batches(self, X, Y=None, batches=1000, batch_size=32, log_interval=1, plot_interval=50, image_shape=None):
+    def train_random_batches(self, X, Y=None, batches=1000, batch_size=32, nr_train_discriminator=1,
+                             nr_train_generator=1,
+                             log_interval=1, plot_interval=50, image_shape=None):
         if batch_size >= X.shape[0]:
             batch_size = X.shape[0]
 
         with trange(batches) as prog_bar:
             for i in prog_bar:
+                # train discriminator nr_train_discriminator times
+                d_accuracy_values = []
+                d_loss_values = []
+                for j in range(nr_train_discriminator):
+                    # Input for the generator
+                    noise_input_batch = self.__generate_noise((batch_size,) + self.noise_input_shape)
+                    # Generate fake inputs
+                    generator_predictions = self.generator.predict([noise_input_batch], batch_size=batch_size)
+                    # Retrieve real examples
+                    batch_indexes = np.random.randint(0, X.shape[0], batch_size)
+                    x_batch = X[batch_indexes]
+                    d_accuracy, d_loss = self.train_discriminator(generator_predictions, x_batch)
+                    d_accuracy_values.append(d_accuracy)
+                    d_loss_values.append(d_loss)
+                d_accuracy = np.mean(d_accuracy_values)
+                d_loss = np.mean(d_loss_values)
 
-                # Input for the generator
-                noise_input_batch = self.__generate_noise((batch_size,) + self.noise_input_shape)
-                # Generate fake inputs
-                generator_predictions = self.generator.predict([noise_input_batch], batch_size=batch_size)
-                # Retrieve real examples
-                batch_indexes = np.random.randint(0, X.shape[0], batch_size)
-                x_batch = X[batch_indexes]
-                d_accuracy, d_loss = self.train_discriminator(generator_predictions, x_batch)
-
-                g_accuracy, g_loss = self.train_generator(batch_size)
+                # train generator nr_train_generator times
+                g_accuracy_values = []
+                g_loss_values = []
+                for j in range(nr_train_generator):
+                    g_accuracy, g_loss = self.train_generator(batch_size)
+                    g_accuracy_values.append(g_accuracy)
+                    g_loss_values.append(g_loss)
+                g_accuracy = np.mean(g_accuracy_values)
+                g_loss = np.mean(g_loss_values)
 
                 if log_interval != 0 and (i % log_interval == 0):
                     prog_bar.set_description("Batch " + str(i + 1) + ",  " + " D loss: " + str(round(d_loss, 4)) +
