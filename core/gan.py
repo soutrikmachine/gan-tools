@@ -22,7 +22,7 @@ class GAN:
         self.set_noise(noise, noise_params)
         if loss.lower() == 'wasserstein' or loss is gan_losses.wasserstein_loss:
             self.loss = gan_losses.wasserstein_loss
-            if discriminator.layers[-1].activation != keras.activations.linear and  discriminator.layers[-1].activation is not None:
+            if discriminator.layers[-1].activation != keras.activations.linear and discriminator.layers[-1].activation is not None:
                 raise ValueError("Wasserstein loss requires the final activation to be linear.")
         else:
             self.loss = loss
