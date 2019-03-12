@@ -4,6 +4,8 @@ from keras import Input, Model
 from keras.optimizers import Adam
 from tqdm.auto import trange
 from tqdm import trange
+
+from util.func import do_n_times
 from . import loss as gan_losses
 from . import vis
 
@@ -66,31 +68,11 @@ class GAN:
         with trange(batches) as prog_bar:
             for i in prog_bar:
                 # train discriminator nr_train_discriminator times
-                d_accuracy_values = []
-                d_loss_values = []
-                for j in range(nr_train_discriminator):
-                    # Input for the generator
-                    noise_input_batch = self.__generate_noise((batch_size,) + self.noise_input_shape)
-                    # Generate fake inputs
-                    generator_predictions = self.generator.predict([noise_input_batch], batch_size=batch_size)
-                    # Retrieve real examples
-                    batch_indexes = np.random.randint(0, X.shape[0], batch_size)
-                    x_batch = X[batch_indexes]
-                    d_accuracy, d_loss = self.train_discriminator(generator_predictions, x_batch)
-                    d_accuracy_values.append(d_accuracy)
-                    d_loss_values.append(d_loss)
-                d_accuracy = np.mean(d_accuracy_values)
-                d_loss = np.mean(d_loss_values)
-
+                d_accuracy, d_loss = do_n_times(nr_train_discriminator, self.train_discriminator_random_batch,
+                                                np.mean, X=X, batch_size=batch_size)
                 # train generator nr_train_generator times
-                g_accuracy_values = []
-                g_loss_values = []
-                for j in range(nr_train_generator):
-                    g_accuracy, g_loss = self.train_generator(batch_size)
-                    g_accuracy_values.append(g_accuracy)
-                    g_loss_values.append(g_loss)
-                g_accuracy = np.mean(g_accuracy_values)
-                g_loss = np.mean(g_loss_values)
+                g_accuracy, g_loss = do_n_times(nr_train_generator, self.train_generator,
+                                                np.mean, batch_size=batch_size)
 
                 if log_interval != 0 and (i % log_interval == 0):
                     prog_bar.set_description("Batch " + str(i + 1) + ",  " + " D loss: " + str(round(d_loss, 4)) +
@@ -159,4 +141,14 @@ class GAN:
                                                                    y=y_fake_discriminator)
         d_loss = (d_loss1 + d_loss2) / 2
         d_accuracy = (d_accuracy1 + d_accuracy2) / 2
+        return d_accuracy, d_loss
+
+    def train_discriminator_random_batch(self, X, batch_size):
+        noise_input_batch = self.__generate_noise((batch_size,) + self.noise_input_shape)
+        # Generate fake inputs
+        generator_predictions = self.generator.predict([noise_input_batch], batch_size=batch_size)
+        # Retrieve real examples
+        batch_indexes = np.random.randint(0, X.shape[0], batch_size)
+        x_batch = X[batch_indexes]
+        d_accuracy, d_loss = self.train_discriminator(generator_predictions, x_batch)
         return d_accuracy, d_loss
