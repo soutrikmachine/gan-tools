@@ -4,6 +4,9 @@ from keras import Input, Model
 from keras.optimizers import Adam
 from tqdm.auto import trange
 from tqdm import trange
+from keras.layers.merge import _Merge
+import keras.backend as K
+from functools import partial
 
 from util.func import do_n_times
 from . import loss as gan_losses
@@ -11,25 +14,33 @@ from . import vis
 
 
 class GAN:
-    default_optimizer = Adam(lr=0.0002, beta_1=0.5)
 
     def __init__(self, generator, discriminator,
-                 generator_optimizer=default_optimizer, discriminator_optimizer=default_optimizer,
-                 noise='normal', noise_params=None, loss='binary_crossentropy'):
+                 generator_optimizer=None, discriminator_optimizer=None,
+                 noise='normal', noise_params=None, gen_loss='binary_crossentropy', dis_loss = 'binary_crossentropy'):
+        if generator_optimizer is None:
+            generator_optimizer = Adam(lr=0.0002, beta_1=0.5)
+        if discriminator_optimizer is None:
+            discriminator_optimizer = Adam(lr=0.0002, beta_1=0.5)
         self.generator = generator
         self.discriminator = discriminator
         self.generator_optimizer = generator_optimizer
         self.discriminator_optimizer = discriminator_optimizer
         self.noise_input_shape = generator.layers[0].input_shape[1:]
         self.set_noise(noise, noise_params)
-        if loss.lower() == 'wasserstein' or loss is gan_losses.wasserstein_loss:
-            self.loss = gan_losses.wasserstein_loss
+        if dis_loss.lower() == 'wasserstein' or dis_loss is gan_losses.wasserstein_loss:
+            dis_loss = gan_losses.wasserstein_loss
             if discriminator.layers[-1].activation != keras.activations.linear and discriminator.layers[
                 -1].activation is not None:
                 raise ValueError("Wasserstein loss requires the final activation to be linear.")
-        else:
-            self.loss = loss
-        self.__combine_discriminator_generator()
+        if gen_loss.lower() == 'wasserstein' or gen_loss is gan_losses.wasserstein_loss:
+            gen_loss = gan_losses.wasserstein_loss
+            if discriminator.layers[-1].activation != keras.activations.linear and discriminator.layers[
+                -1].activation is not None:
+                raise ValueError("Wasserstein loss requires the final activation to be linear.")
+        self.dis_loss = dis_loss
+        self.gen_loss = gen_loss
+        self._combine_discriminator_generator()
 
     def set_noise(self, noise, noise_params):
         if noise_params is None and noise == 'normal':
@@ -39,20 +50,20 @@ class GAN:
         self.noise = noise
 
     def generate(self, nr):
-        noise = self.__generate_noise((nr,) + self.noise_input_shape)
+        noise = self._generate_noise((nr,) + self.noise_input_shape)
         return self.generator.predict(noise)
 
-    def __combine_discriminator_generator(self):
-        self.discriminator.compile(loss=self.loss,
+    def _combine_discriminator_generator(self):
+        self.discriminator.compile(loss=self.dis_loss,
                                    optimizer=self.discriminator_optimizer, metrics=['acc'])
         gan_noise_input = Input(shape=self.noise_input_shape, name='gan_noise_input')
         generator_out = self.generator(inputs=[gan_noise_input])
         self.discriminator.trainable = False
         gan_output = self.discriminator(inputs=[generator_out])
         self.gan = Model(inputs=[gan_noise_input], outputs=[gan_output], name='GAN')
-        self.gan.compile(loss=self.loss, optimizer=self.generator_optimizer, metrics=['acc'])
+        self.gan.compile(loss=self.dis_loss, optimizer=self.generator_optimizer, metrics=['acc'])
 
-    def __generate_noise(self, shape):
+    def _generate_noise(self, shape):
         if callable(self.noise):
             return self.noise(shape)
         if self.noise is 'normal':
@@ -96,7 +107,7 @@ class GAN:
                 G_losses = []
                 for j in range(batch_count):
                     # Input for the generator
-                    noise_input_batch = self.__generate_noise((batch_size,) + self.noise_input_shape)
+                    noise_input_batch = self._generate_noise((batch_size,) + self.noise_input_shape)
                     # Generate fake inputs
                     generator_predictions = self.generator.predict([noise_input_batch], batch_size=batch_size)
                     # Retrieve real examples
@@ -122,7 +133,7 @@ class GAN:
 
     def train_generator(self, batch_size):
         # Train the generator, 2* batch size to get the same nr as the discriminator
-        noise_input_batch = self.__generate_noise((2 * batch_size,) + self.noise_input_shape)
+        noise_input_batch = self._generate_noise((2 * batch_size,) + self.noise_input_shape)
         y_generator = [1] * 2 * batch_size
         g_loss, g_accuracy = self.gan.train_on_batch(x=[noise_input_batch], y=y_generator)
         return g_accuracy, g_loss
@@ -130,7 +141,7 @@ class GAN:
     def train_discriminator(self, fake_batch, x_batch):
         # labels for the discriminator
         y_real_discriminator = [1] * x_batch.shape[0]
-        if self.loss == gan_losses.wasserstein_loss:
+        if self.dis_loss == gan_losses.wasserstein_loss:
             y_fake_discriminator = [-1] * fake_batch.shape[0]
         else:
             y_fake_discriminator = [0] * fake_batch.shape[0]
@@ -144,7 +155,7 @@ class GAN:
         return d_accuracy, d_loss
 
     def train_discriminator_random_batch(self, X, batch_size):
-        noise_input_batch = self.__generate_noise((batch_size,) + self.noise_input_shape)
+        noise_input_batch = self._generate_noise((batch_size,) + self.noise_input_shape)
         # Generate fake inputs
         generator_predictions = self.generator.predict([noise_input_batch], batch_size=batch_size)
         # Retrieve real examples
@@ -152,3 +163,75 @@ class GAN:
         x_batch = X[batch_indexes]
         d_accuracy, d_loss = self.train_discriminator(generator_predictions, x_batch)
         return d_accuracy, d_loss
+
+
+class RandomWeightedAverage(_Merge):
+    def _merge_function(self, inputs):
+        weights = K.random_uniform((K.shape(inputs[0])[0], 1, 1, 1))
+        return (weights * inputs[0]) + ((1 - weights) * inputs[1])
+
+class WGAN(GAN):
+
+    def __init__(self, generator, discriminator, generator_optimizer=None,
+                 discriminator_optimizer=None, noise='normal', noise_params=None,
+                 gen_loss='wasserstein', dis_loss='wasserstein', lam=10.0):
+        gen_loss = 'wasserstein'
+        dis_loss = 'wasserstein'
+        self.lam = lam
+        super().__init__(generator, discriminator, generator_optimizer, discriminator_optimizer, noise, noise_params,
+                         gen_loss, dis_loss)
+
+    def train_generator(self, batch_size):
+        noise_input_batch = self._generate_noise(( batch_size,) + self.noise_input_shape)
+        y_generator = [1] * batch_size
+        g_loss, g_accuracy = self.gan.train_on_batch(x=[noise_input_batch], y=y_generator)
+        return g_accuracy, g_loss
+
+    def train_discriminator(self, fake_batch, x_batch):
+        y_real_discriminator = [1.0] * x_batch.shape[0]
+        y_fake_discriminator = [-1.0] * fake_batch.shape[0]
+        dummy_y = [0.0] * x_batch.shape[0]
+        return 0.0, self.discriminator.train_on_batch([x_batch, fake_batch],[y_real_discriminator, y_fake_discriminator, dummy_y])
+
+    def _combine_discriminator_generator(self):
+        gan_noise_input = Input(shape=self.noise_input_shape, name='gan_noise_input')
+        generator_out = self.generator(inputs=[gan_noise_input])
+        self.discriminator.trainable = False
+        gan_output = self.discriminator(inputs=[generator_out])
+        self.gan = Model(inputs=[gan_noise_input], outputs=[gan_output], name='GAN')
+        self.gan.compile(loss=self.dis_loss, optimizer=self.generator_optimizer, metrics=['acc'])
+        self.discriminator.trainable = True
+        real_samples = Input(shape=self.discriminator.input_shape[1:])
+        generated_samples_input = Input(shape=self.discriminator.input_shape[1:])
+
+        discriminator_output_from_generator = self.discriminator(generated_samples_input)
+        discriminator_output_from_real_samples = self.discriminator(real_samples)
+
+        averaged_samples = RandomWeightedAverage()([real_samples,
+                                                    generated_samples_input])
+        averaged_samples_out = self.discriminator(averaged_samples)
+
+        partial_gp_loss = partial(gan_losses.gp_loss,
+                                  averaged_samples=averaged_samples,
+                                  gradient_penalty_weight=self.lam)
+        partial_gp_loss.__name__ = 'gradient_penalty'
+
+        discriminator_model = Model(inputs=[real_samples,
+                                            generated_samples_input],
+                                    outputs=[discriminator_output_from_real_samples,
+                                             discriminator_output_from_generator,
+                                             averaged_samples_out])
+        discriminator_model.compile(optimizer=self.discriminator_optimizer,
+                                    loss=[gan_losses.wasserstein_loss,
+                                          gan_losses.wasserstein_loss,
+                                          partial_gp_loss])
+        self.discriminator = discriminator_model
+
+
+
+
+
+
+
+
+

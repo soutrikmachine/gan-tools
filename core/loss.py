@@ -1,4 +1,5 @@
 import keras.backend as K
+import numpy as np
 
 
 def wasserstein_loss(y_true, y_pred):
@@ -14,3 +15,14 @@ def wasserstein_loss(y_true, y_pred):
     Note that the nature of this loss means that it can be (and frequently will be)
     less than 0."""
     return K.mean(y_true * y_pred)
+
+
+def gp_loss(y_true, y_pred, averaged_samples,
+                          gradient_penalty_weight):
+    gradients = K.gradients(y_pred, averaged_samples)[0]
+    gradients_sqr = K.square(gradients)
+    gradients_sqr_sum = K.sum(gradients_sqr,
+                              axis=np.arange(1, len(gradients_sqr.shape)))
+    gradient_l2_norm = K.sqrt(gradients_sqr_sum)
+    gradient_penalty = gradient_penalty_weight * K.square(1 - gradient_l2_norm)
+    return K.mean(gradient_penalty)
