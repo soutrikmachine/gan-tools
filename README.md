@@ -1,6 +1,8 @@
 # Training of Generative Adversarial networks
 This repository contains the boilerplate code necessary to train Generative Adversarial Networks in the standard, non-saturating, framework and in the wasserstein framework.
+Under the 'impl' folder, examples can be found on how to use this framework.
 
+-- References --
 
 Ian J. Goodfellow and Jean Pouget-Abadie and Mehdi Mirza and Bing Xu and David Warde-Farley and Sherjil Ozair and Aaron C. Courville and Yoshua Bengio (2014). Generative Adversarial Nets. In Advances in Neural Information Processing Systems 27: Annual Conference on Neural Information Processing Systems 2014, December 8-13 2014, Montreal, Quebec, Canada (pp. 2672–2680).
 
