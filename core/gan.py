@@ -41,6 +41,11 @@ class GAN:
         self.dis_loss = dis_loss
         self.gen_loss = gen_loss
         self._combine_discriminator_generator()
+        # training statistics
+        self.d_losses = []
+        self.g_losses = []
+        self.d_accs = []
+        self.g_accs = []
 
     def set_noise(self, noise, noise_params):
         if noise_params is None and noise == 'normal':
@@ -90,6 +95,10 @@ class GAN:
                                              " D acc: " + str(round(d_accuracy, 4)) +
                                              " G loss: " + str(round(g_loss, 4)) +
                                              " G acc: " + str(round(g_accuracy, 4)))
+                    self.d_losses.append(d_loss)
+                    self.g_losses.append(g_loss)
+                    self.d_accs.append(d_accuracy)
+                    self.g_accs.append(g_accuracy)
                 if plot_interval != 0 and (i % plot_interval == 0):
                     vis.show_gan_image_predictions(self, 32, image_shape=image_shape)
 
@@ -101,10 +110,6 @@ class GAN:
         batch_count = X.shape[0] // batch_size
         with trange(epochs) as prog_bar:
             for i in prog_bar:
-                D_accs = []
-                D_losses = []
-                G_accs = []
-                G_losses = []
                 for j in range(batch_count):
                     # Input for the generator
                     noise_input_batch = self._generate_noise((batch_size,) + self.noise_input_shape)
@@ -118,16 +123,17 @@ class GAN:
 
                     g_accuracy, g_loss = self.train_generator(batch_size)
 
-                    D_accs.append(d_accuracy)
-                    D_losses.append(d_loss)
-                    G_accs.append(g_accuracy)
-                    G_losses.append(g_loss)
                     batches_done = batches_done + 1
                     if log_interval != 0 and (batches_done % log_interval == 0):
                         prog_bar.set_description("Epoch " + str(i + 1) + ",  " + " D loss: " + str(round(d_loss, 4)) +
                                                  " D acc: " + str(round(d_accuracy, 4)) +
                                                  " G loss: " + str(round(g_loss, 4)) +
                                                  " G acc: " + str(round(g_accuracy, 4)))
+                        self.d_losses.append(d_loss)
+                        self.g_losses.append(g_loss)
+                        self.d_accs.append(d_accuracy)
+                        self.g_accs.append(g_accuracy)
+
                     if plot_interval != 0 and (batches_done % plot_interval == 0):
                         vis.show_gan_image_predictions(self, 32, image_shape=image_shape)
 
@@ -207,8 +213,7 @@ class WGAN(GAN):
         discriminator_output_from_generator = self.discriminator(generated_samples_input)
         discriminator_output_from_real_samples = self.discriminator(real_samples)
 
-        averaged_samples = RandomWeightedAverage()([real_samples,
-                                                    generated_samples_input])
+        averaged_samples = RandomWeightedAverage()([real_samples,generated_samples_input])
         averaged_samples_out = self.discriminator(averaged_samples)
 
         partial_gp_loss = partial(gan_losses.gp_loss,
