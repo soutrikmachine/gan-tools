@@ -4,7 +4,7 @@ from keras import Input, Model
 from keras.optimizers import Adam
 from tqdm.auto import trange
 from tqdm import trange
-from keras.layers.merge import _Merge
+from keras.layers.merge import Concatenate
 import keras.backend as K
 from functools import partial
 
@@ -171,7 +171,7 @@ class GAN:
         return d_accuracy, d_loss
 
 
-class RandomWeightedAverage(_Merge):
+class RandomWeightedAverage(Concatenate):
     def _merge_function(self, inputs):
         weights = K.random_uniform((K.shape(inputs[0])[0], 1, 1, 1))
         return (weights * inputs[0]) + ((1 - weights) * inputs[1])
